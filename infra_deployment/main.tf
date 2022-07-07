@@ -69,6 +69,13 @@ resource "aws_security_group" "allow_web" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -81,6 +88,107 @@ resource "aws_security_group" "allow_web" {
   }
 }
 
+# Creating Application Load Balancer
+resource "aws_alb" "alb" {
+  name               = "alpha-alb"
+  security_groups    = [aws_security_group.allow_web.id]
+  subnets            = [aws_subnet.alpha-subnet.id]
+  load_balancer_type = "application"
+  tags = {
+    Name = "alpha-alb"
+  }
+}
+
+resource "aws_launch_configuration" "web-server-instance" {
+  image_id                    = "ami-055147723b7bca09a"
+  instance_type               = "t2.micro"
+  key_name                    = "alpha"
+  security_groups             = [aws_security_group.allow_web.id]
+  associate_public_ip_address = true
+  # user_data = "${file("data.sh")}"  # to create this file
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_autoscaling_group" "web" {
+  name             = "${aws_launch_configuration.web-server-instance.name}-asg"
+  min_size         = 1
+  desired_capacity = 1
+  max_size         = 2
+
+  health_check_type = "ELB"
+  load_balancers = [
+    "${aws_alb.alb.id}"
+  ]
+  launch_configuration = aws_launch_configuration.web-server-instance.name
+  enabled_metrics = [
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupTotalInstances"
+  ]
+  metrics_granularity = "1Minute"
+  vpc_zone_identifier = ["${aws_subnet.alpha-subnet.id}"]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+  tag {
+    key                 = "Name"
+    value               = "web"
+    propagate_at_launch = true
+  }
+}
+
+resource "aws_autoscaling_policy" "web_policy_up" {
+  name                   = "web_policy_up"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.web.name
+}
+
+resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_up" {
+  alarm_name          = "web_cpu_alarm_up"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "65"
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.web.name}"
+  }
+  alarm_description = "This metric monitor EC2 instance CPU utilization"
+  alarm_actions     = ["${aws_autoscaling_policy.web_policy_up.arn}"]
+}
+
+resource "aws_autoscaling_policy" "web_policy_down" {
+  name                   = "web_policy_down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.web.name
+}
+
+resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_down" {
+  alarm_name          = "web_cpu_alarm_down"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "65"
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.web.name}"
+  }
+  alarm_description = "This metric monitor EC2 instance CPU utilization"
+  alarm_actions     = ["${aws_autoscaling_policy.web_policy_down.arn}"]
+}
 
 # Creating a network interface
 resource "aws_network_interface" "web-server-nic" {
@@ -113,6 +221,10 @@ resource "aws_instance" "web-server-instance" {
   network_interface {
     device_index         = 0
     network_interface_id = aws_network_interface.web-server-nic.id
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
   user_data = <<-EOF
