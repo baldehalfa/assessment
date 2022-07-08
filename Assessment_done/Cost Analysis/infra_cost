@@ -1,0 +1,32 @@
+Project: baldehalfa/assessment/infra_deployment
+
+ Name                                                       Monthly Qty  Unit              Monthly Cost 
+                                                                                                        
+ aws_alb.alb                                                                                            
+ ├─ Application load balancer                                       730  hours                   $18.40 
+ └─ Load balancer capacity units                         Monthly cost depends on usage: $5.84 per LCU   
+                                                                                                        
+ aws_autoscaling_group.web                                                                              
+ └─ aws_launch_configuration.web-server-instance                                                        
+    ├─ Instance usage (Linux/UNIX, on-demand, t2.micro)             730  hours                   $10.66 
+    ├─ EC2 detailed monitoring                                        7  metrics                  $2.10 
+    └─ root_block_device                                                                                
+       └─ Storage (general purpose SSD, gp2)                          8  GB                       $0.96 
+                                                                                                        
+ aws_cloudwatch_metric_alarm.web_cpu_alarm_down                                                         
+ └─ Standard resolution                                               1  alarm metrics            $0.10 
+                                                                                                        
+ aws_cloudwatch_metric_alarm.web_cpu_alarm_up                                                           
+ └─ Standard resolution                                               1  alarm metrics            $0.10 
+                                                                                                        
+ aws_instance.web-server-instance                                                                       
+ ├─ Instance usage (Linux/UNIX, on-demand, t2.micro)                730  hours                   $10.66 
+ └─ root_block_device                                                                                   
+    └─ Storage (general purpose SSD, gp2)                             8  GB                       $0.96 
+                                                                                                        
+ OVERALL TOTAL                                                                                   $43.93 
+──────────────────────────────────
+16 cloud resources were detected:
+∙ 5 were estimated, 3 of which include usage-based costs, see https://infracost.io/usage-file
+∙ 9 were free, rerun with --show-skipped to see details
+∙ 2 are not supported yet, rerun with --show-skipped to see details

@@ -1,0 +1,13 @@
+To deploy the infrastructure here are the instructions
+
+1- Create and update the access_key and the secret_key which is in the versions.tf file
+
+	access_key = ""
+  	secret_key = ""
+  	
+2- CD into infradeployment directory and run the following commands
+
+	terraform init
+	terraform validate
+	terraform plan
+	terraform apply
